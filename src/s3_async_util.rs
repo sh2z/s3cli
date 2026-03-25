@@ -315,6 +315,7 @@ impl S3Client {
                 print_info.push_str(&format!("   Owner:     {}\n", name));
             }
         }
+        print_info.push_str("   Payer:     BucketOwner\n");
 
         // 3. 获取版本控制状态
         let versioning = client.get_bucket_versioning().bucket(bucket).send().await?;
