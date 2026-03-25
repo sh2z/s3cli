@@ -542,14 +542,6 @@ mod config_editor {
 async fn main() -> Result<()> {
     let params = Params::parse();
 
-    // 如果没有指定任何参数，显示帮助
-    if params.user.is_none() && params.command.is_none() {
-        // 使用 clap 内置的帮助显示
-        use clap::Parser;
-        let _ = <Params as Parser>::parse_from(["s3cli", "--help"]);
-        return Ok(());
-    }
-
     // 处理 show 命令（不需要用户参数）
     if let Some(SubCommand::Show) = &params.command {
         show_accounts_table().await?;
@@ -559,6 +551,23 @@ async fn main() -> Result<()> {
     // 处理 config 命令（不需要用户参数）
     if let Some(SubCommand::Config) = &params.command {
         config_editor::Editor::run()?;
+        return Ok(());
+    }
+
+    // 如果没有指定用户和命令，显示默认用户信息 + 帮助
+    if params.user.is_none() && params.command.is_none() {
+        // 加载默认账户信息并显示
+        if let Ok(account) = get_account_config(None) {
+            println!("user: \"{}\"", account.user);
+            println!("description: \"{}\"", account.description.as_deref().unwrap_or(""));
+            println!("access_key: \"{}\"", account.access_key);
+            println!("secret_key: \"{}\"", account.secret_key);
+            println!("url: \"{}\"", account.url);
+            println!();
+        }
+        // 显示帮助信息
+        use clap::Parser;
+        let _ = <Params as Parser>::parse_from(["s3cli", "--help"]);
         return Ok(());
     }
 
