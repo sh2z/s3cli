@@ -8,7 +8,6 @@ use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, Color, Table};
 use dialoguer::{Input, Select, Confirm, theme::ColorfulTheme};
 use owo_colors::OwoColorize;
-use std::path::Path;
 use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
@@ -62,8 +61,8 @@ enum SubCommand {
         local_file: String,
         #[arg(help = "存储桶 URL (s3://bucket 或 bucket)")]
         bucket: String,
-        #[arg(help = "对象键")]
-        key: String,
+        #[arg(help = "对象键（可选，默认为本地文件路径）")]
+        key: Option<String>,
     },
 
     /// 下载文件
@@ -602,15 +601,9 @@ async fn main() -> Result<()> {
             key,
         } => {
             let bucket_name = parse_bucket_url(&bucket)?;
+            // 如果没有指定 key，使用本地文件路径作为 key
+            let key = key.unwrap_or_else(|| local_file.clone());
             let file_size = tokio::fs::metadata(&local_file).await?.len();
-            let key = if key.ends_with("/") {
-                let file_name = Path::new(&local_file)
-                    .file_name()
-                    .ok_or(anyhow!("File name is empty"))?;
-                format!("{}{}", key, file_name.to_str().unwrap())
-            } else {
-                key
-            };
             if file_size > CHUNK_SIZE as u64 {
                 s3_client.upload_file_multipart(&bucket_name, &local_file, &key).await?;
             } else {
