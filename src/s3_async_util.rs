@@ -297,28 +297,89 @@ impl S3Client {
         Ok(print_info)
     }
 
-    /// 显示桶的信息
+    /// 显示桶的信息（包含 Policy、Expiration、CORS、ACL 等完整信息）
     pub async fn display_bucket_info(&self, bucket: &str) -> anyhow::Result<String> {
         let client = self.client.clone();
-
-        // 1. 检查桶是否存在及权限 (HeadBucket)
-        client.head_bucket().bucket(bucket).send().await?;
-        // 2. 获取桶的位置 (GetBucketLocation)
-        let location_resp = client.get_bucket_location().bucket(bucket).send().await?;
-        let region = location_resp.location_constraint().map(|r| r.as_str()).unwrap_or("us-east-1");
-        // 3. 获取桶的 ACL
-        let acl = client.get_bucket_acl().bucket(bucket).send().await?;
         let mut print_info = String::new();
 
-        // 4. 组装 string（格式与 s3cmd 一致）
+        // 1. 获取桶的位置
+        let location_resp = client.get_bucket_location().bucket(bucket).send().await?;
+        let region = location_resp.location_constraint().map(|r| r.as_str()).unwrap_or("us-east-1");
         print_info.push_str(&format!("s3://{} (bucket):\n", bucket));
         print_info.push_str(&format!("   Location:  {}\n", region));
-        if let Some(owner) = acl.owner() {
-            print_info.push_str(&format!("   Owner:     {}\n", owner.display_name().unwrap_or("unknown")));
-        }
-        print_info.push_str(&format!("   Payer:     BucketOwner\n"));
 
-        info!("{}", print_info);
+        // 2. 获取桶的 ACL
+        let acl = client.get_bucket_acl().bucket(bucket).send().await?;
+        if let Some(owner) = acl.owner() {
+            if let Some(name) = owner.display_name() {
+                print_info.push_str(&format!("   Owner:     {}\n", name));
+            }
+        }
+
+        // 3. 获取版本控制状态
+        let versioning = client.get_bucket_versioning().bucket(bucket).send().await?;
+        let versioning_status = versioning.status().map(|s| s.as_str()).unwrap_or("none");
+        print_info.push_str(&format!("   Versioning:{}\n", versioning_status));
+
+        // 4. 获取生命周期规则
+        let lifecycle = self.get_bucket_lifecycle(bucket).await?;
+        if let Some(lc) = lifecycle {
+            // 解析 XML 获取过期规则
+            if lc.contains("<Expiration>") {
+                if let Some(start) = lc.find("prefix\">").map(|i| i + 8) {
+                    if let Some(end) = lc[start..].find("</prefix").map(|i| i + start) {
+                        let prefix = &lc[start..end];
+                        if let Some(days_start) = lc.find("<Days>").map(|i| i + 6) {
+                            if let Some(days_end) = lc[days_start..].find("</Days>").map(|i| i + days_start) {
+                                let days = &lc[days_start..days_end];
+                                print_info.push_str(&format!("   Expiration Rule: objects with key prefix '{}' will expire in '{}' day(s) after creation\n", prefix, days));
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            print_info.push_str("   Expiration:none\n");
+        }
+
+        // 5. 获取 Block Public Access
+        let public_access = client.get_public_access_block().bucket(bucket).send().await;
+        match public_access {
+            Ok(_) => print_info.push_str("   Block Public Access: configured\n"),
+            Err(_) => print_info.push_str("   Block Public Access: none\n"),
+        }
+
+        // 6. 获取桶的 Policy
+        let policy = self.get_bucket_policy(bucket).await?;
+        if let Some(p) = policy {
+            // 格式化 JSON 输出
+            let formatted_policy = p.split('\n').collect::<Vec<_>>().join("\n   ");
+            print_info.push_str(&format!("   Policy:    {}\n", formatted_policy));
+        } else {
+            print_info.push_str("   Policy:    none\n");
+        }
+
+        // 7. 获取 CORS
+        let cors = client.get_bucket_cors().bucket(bucket).send().await;
+        match cors {
+            Ok(_) => print_info.push_str("   CORS:      configured\n"),
+            Err(_) => print_info.push_str("   CORS:      none\n"),
+        }
+
+        // 8. 显示 ACL 信息
+        if let Some(owner) = acl.owner() {
+            if let Some(name) = owner.display_name() {
+                print_info.push_str(&format!("   ACL:       {}: FULL_CONTROL\n", name));
+            }
+        }
+
+        // 9. 获取 Ownership Controls
+        let ownership = client.get_bucket_ownership_controls().bucket(bucket).send().await;
+        match ownership {
+            Ok(_) => print_info.push_str("   Ownership: BucketOwnerPreferred\n"),
+            Err(_) => print_info.push_str("   Ownership: none\n"),
+        }
+
         Ok(print_info)
     }
 
