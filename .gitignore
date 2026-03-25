@@ -1,0 +1,13 @@
+*.tar.gz
+*.jpg
+*.tgz
+mydir/
+^bin/
+target/
+files/
+d5/
+ceph_keys.yaml
+.DS_Store
+.ai/
+.tuze/
+.s3cfg

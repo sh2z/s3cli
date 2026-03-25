@@ -1,0 +1,41 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "s3cli"
+path = "src/bin/s3cli/main.rs"
+
+[dependencies]
+# 通用
+anyhow = "1.0"
+clap = { version = "4.5.4", features = ["derive"] }
+
+# s3_async_util，操作 S3 的工具
+tokio = { version = "1", features = ["full"] }
+aws-config = { version = "1.8" }
+aws-sdk-s3 = { version = "1.119", features = [ "http-1x"] }
+walkdir = "2"
+urlencoding = "2.1"
+log = "0.4"
+futures = "0.3"
+
+# s3_cfg_util，S3 配置工具
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+dirs = "5.0"
+
+# 表格展示
+comfy-table = "7.1"
+
+# 时间处理
+chrono = "0.4"
+
+# 交互式配置管理
+dialoguer = "0.11"
+owo-colors = "4.2"
+
+[dev-dependencies]
+env_logger = "0.11"
+ctor = "0.2"
