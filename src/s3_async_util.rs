@@ -987,11 +987,13 @@ impl S3Client {
                 }
             }
             Err(e) => {
+                // 捕获 NoSuchLifecycleConfiguration 错误，返回 None
                 let err_str = e.to_string();
                 if err_str.contains("NoSuchLifecycleConfiguration") {
                     Ok(None)
                 } else {
-                    Err(e.into())
+                    // 其他错误也返回 None，不中断显示
+                    Ok(None)
                 }
             }
         }
