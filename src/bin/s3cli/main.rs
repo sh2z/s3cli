@@ -618,11 +618,7 @@ async fn main() -> Result<()> {
             }
             // 构建完整访问 URL
             let access_url = format!("{}/{}/{}", account.url.trim_end_matches('/'), bucket_name, key);
-            println!(
-                "File {} -> s3://{}/{} uploaded successfully.",
-                local_file, bucket_name, key
-            );
-            println!("Access URL: {}", access_url);
+            println!("uploaded successfully: {}", access_url);
         }
         SubCommand::Putr {
             local_dir,
@@ -636,13 +632,7 @@ async fn main() -> Result<()> {
                 .await?;
             // 构建完整访问 URL
             let access_url = format!("{}/{}/{}", account.url.trim_end_matches('/'), bucket_name, prefix_str);
-            println!(
-                "Directory {} -> s3://{}/{} uploaded successfully.",
-                local_dir,
-                bucket_name,
-                prefix_str
-            );
-            println!("Access URL: {}", access_url);
+            println!("uploaded successfully: {}", access_url);
         }
         SubCommand::Get {
             bucket,
