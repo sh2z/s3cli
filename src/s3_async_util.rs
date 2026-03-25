@@ -304,7 +304,7 @@ impl S3Client {
 
         // 1. 获取桶的位置
         let location_resp = client.get_bucket_location().bucket(bucket).send().await?;
-        let region = location_resp.location_constraint().map(|r| r.as_str()).unwrap_or("us-east-1");
+        let region = location_resp.location_constraint().map(|r| r.as_str()).unwrap_or("myzonegroupapi");
         print_info.push_str(&format!("s3://{} (bucket):\n", bucket));
         print_info.push_str(&format!("   Location:  {}\n", region));
 
