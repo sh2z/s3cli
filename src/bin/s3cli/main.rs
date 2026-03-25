@@ -565,13 +565,20 @@ async fn main() -> Result<()> {
     // 处理其他命令：需要确定用户
     let account = get_account_config(params.user.as_deref())?;
 
-    // 创建 S3 客户端
-    let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
-
-    // 获取命令（如果有的话）
+    // 如果没有指定命令，显示默认用户信息
     let Some(command) = params.command else {
+        println!("user: \"{}\"", account.user);
+        println!("description: \"{}\"", account.description.as_deref().unwrap_or(""));
+        println!("access_key: \"{}\"", account.access_key);
+        println!("secret_key: \"{}\"", account.secret_key);
+        println!("url: \"{}\"", account.url);
+        println!();
+        println!("使用 's3cli --help' 查看可用命令");
         return Ok(());
     };
+
+    // 创建 S3 客户端
+    let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
 
     match command {
         SubCommand::Show | SubCommand::Config => {

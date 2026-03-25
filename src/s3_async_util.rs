@@ -310,13 +310,13 @@ impl S3Client {
         let acl = client.get_bucket_acl().bucket(bucket).send().await?;
         let mut print_info = String::new();
 
-        // 4. 组装string
-        print_info.push_str(&format!("s3://{}", bucket));
-        print_info.push_str(&format!("   Location:  {}", region));
+        // 4. 组装 string（格式与 s3cmd 一致）
+        print_info.push_str(&format!("s3://{} (bucket):\n", bucket));
+        print_info.push_str(&format!("   Location:  {}\n", region));
         if let Some(owner) = acl.owner() {
-            print_info.push_str(&format!("   Owner:     {}", owner.display_name().unwrap_or("unknown")));
+            print_info.push_str(&format!("   Owner:     {}\n", owner.display_name().unwrap_or("unknown")));
         }
-        print_info.push_str(&format!("   Payer:     BucketOwner"));
+        print_info.push_str(&format!("   Payer:     BucketOwner\n"));
 
         info!("{}", print_info);
         Ok(print_info)
