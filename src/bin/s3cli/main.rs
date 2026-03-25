@@ -177,17 +177,9 @@ enum SubCommand {
         bucket_url: String,
     },
 
-    /// 授权用户访问桶（需要 admin 权限）
-    Grant {
-        #[arg(help = "被授权用户名")]
-        grant_user: String,
-        #[arg(help = "桶 URL，如 s3://bucket")]
-        bucket_url: String,
-    },
-
     /// 设置桶过期时间（需要 admin 权限）
     Expire {
-        #[arg(help = "桶 URL，如 s3://bucket")]
+        #[arg(help = "桶 URL（只接受 bucket，如 s3://bucket）")]
         bucket_url: String,
         #[arg(help = "过期天数")]
         days: i32,
@@ -721,6 +713,14 @@ async fn main() -> Result<()> {
         }
         SubCommand::Info { bucket, key } => {
             let bucket_name = parse_bucket_url(&bucket)?;
+            // 显示用户信息
+            println!("user: \"{}\"", account.user);
+            println!("description: \"{}\"", account.description.as_deref().unwrap_or(""));
+            println!("access_key: \"{}\"", account.access_key);
+            println!("secret_key: \"{}\"", account.secret_key);
+            println!("url: \"{}\"", account.url);
+            println!();
+            
             match key {
                 Some(key) => {
                     let obj_info = s3_client.display_object_info(&bucket_name, &key).await?;
@@ -766,21 +766,18 @@ async fn main() -> Result<()> {
             let info = s3_client.display_bucket_info(&bucket).await?;
             println!("{}", info);
         }
-        SubCommand::Grant { grant_user, bucket_url } => {
-            // 需要 admin 权限
-            let bucket = parse_bucket_url(&bucket_url)?;
-            s3_client.grant_bucket_access(&bucket, &grant_user).await?;
-
-            // 显示更新后的信息
-            let info = s3_client.display_bucket_info(&bucket).await?;
-            println!("{}", info);
-        }
         SubCommand::Expire { bucket_url, days } => {
             // 需要 admin 权限
+            // expire 只接受 bucket 名称，不接受路径
             let bucket = parse_bucket_url(&bucket_url)?;
+            
+            // 检查 bucket_url 是否包含路径
+            let path_part = bucket_url.strip_prefix("s3://").unwrap_or(&bucket_url);
+            if path_part.contains('/') {
+                return Err(anyhow!("expire 命令只接受 bucket 名称，不接受路径\n用法：s3cli expire s3://bucket 90"));
+            }
 
-            // 使用 expire 命令（设置整个桶的对象过期）
-            // 这里我们设置一个 lifecycle 规则来让整个桶的对象在指定天数后过期
+            // 设置整个桶的对象在指定天数后过期
             s3_client.set_bucket_lifecycle(&bucket, "", days).await?;
 
             // 显示更新后的信息

@@ -22,9 +22,6 @@ use tokio::sync::Semaphore;
 use urlencoding::encode;
 use walkdir::WalkDir;
 
-// 引入配置模块
-use crate::s3_cfg_util::CephKeysConfig;
-
 // 默认区
 pub const DEFAULT_REGION: &str = "us-east-1";
 // 最大并发数
@@ -886,42 +883,6 @@ impl S3Client {
         );
         self.set_bucket_policy(bucket, &policy).await?;
         info!("Bucket {} set to public access", bucket);
-        Ok(())
-    }
-
-    /// 授权用户访问桶
-    pub async fn grant_bucket_access(&self, bucket: &str, grant_user: &str) -> Result<()> {
-        // 获取被授权用户的 access_key
-        let config = CephKeysConfig::load()?;
-        let user_account = config.get_account(grant_user)?;
-        
-        let policy = format!(
-            r#"{{
-    "Statement": [
-        {{
-            "Action": [
-                "s3:GetObject",
-                "s3:GetObjectAcl",
-                "s3:PutObject",
-                "s3:PutObjectAcl",
-                "s3:DeleteObject"
-            ],
-            "Effect": "Allow",
-            "Principal": {{
-                "AWS": "arn:aws:iam::s3:user/{}"
-            }},
-            "Resource": [
-                "arn:aws:s3:::{1}/*"
-            ],
-            "Sid": "grant-access"
-        }}
-    ],
-    "Version": "2012-10-17"
-}}"#,
-            user_account.access_key, bucket
-        );
-        self.set_bucket_policy(bucket, &policy).await?;
-        info!("Bucket {} granted access to user {}", bucket, grant_user);
         Ok(())
     }
 
