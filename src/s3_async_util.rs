@@ -310,10 +310,10 @@ impl S3Client {
 
         // 2. 获取桶的 ACL
         let acl = client.get_bucket_acl().bucket(bucket).send().await?;
-        if let Some(owner) = acl.owner() {
-            if let Some(name) = owner.display_name() {
-                print_info.push_str(&format!("   Owner:     {}\n", name));
-            }
+        if let Some(owner) = acl.owner()
+            && let Some(name) = owner.display_name()
+        {
+            print_info.push_str(&format!("   Owner:     {}\n", name));
         }
         print_info.push_str("   Payer:     BucketOwner\n");
 
@@ -326,17 +326,16 @@ impl S3Client {
         let lifecycle = self.get_bucket_lifecycle(bucket).await?;
         if let Some(lc) = lifecycle {
             // 解析 XML 获取过期规则
-            if lc.contains("<Expiration>") {
-                if let Some(start) = lc.find("prefix\">").map(|i| i + 8) {
-                    if let Some(end) = lc[start..].find("</prefix").map(|i| i + start) {
-                        let prefix = &lc[start..end];
-                        if let Some(days_start) = lc.find("<Days>").map(|i| i + 6) {
-                            if let Some(days_end) = lc[days_start..].find("</Days>").map(|i| i + days_start) {
-                                let days = &lc[days_start..days_end];
-                                print_info.push_str(&format!("   Expiration Rule: objects with key prefix '{}' will expire in '{}' day(s) after creation\n", prefix, days));
-                            }
-                        }
-                    }
+            if lc.contains("<Expiration>")
+                && let Some(start) = lc.find("prefix\">").map(|i| i + 8)
+                && let Some(end) = lc[start..].find("</prefix").map(|i| i + start)
+            {
+                let prefix = &lc[start..end];
+                if let Some(days_start) = lc.find("<Days>").map(|i| i + 6)
+                    && let Some(days_end) = lc[days_start..].find("</Days>").map(|i| i + days_start)
+                {
+                    let days = &lc[days_start..days_end];
+                    print_info.push_str(&format!("   Expiration Rule: objects with key prefix '{}' will expire in '{}' day(s) after creation\n", prefix, days));
                 }
             }
         } else {
@@ -368,10 +367,10 @@ impl S3Client {
         }
 
         // 8. 显示 ACL 信息
-        if let Some(owner) = acl.owner() {
-            if let Some(name) = owner.display_name() {
-                print_info.push_str(&format!("   ACL:       {}: FULL_CONTROL\n", name));
-            }
+        if let Some(owner) = acl.owner()
+            && let Some(name) = owner.display_name()
+        {
+            print_info.push_str(&format!("   ACL:       {}: FULL_CONTROL\n", name));
         }
 
         // 9. 获取 Ownership Controls
@@ -587,7 +586,7 @@ impl S3Client {
     /// 显示对象列表
     pub async fn display_objects(&self, bucket: &str, prefix: &str) -> Result<()> {
         let objects = self.list_objects_page(bucket, prefix).await?;
-        let formatted_objects: String = objects.into_iter().map(|b| format!("{}", b)).collect::<Vec<_>>().join("\n");
+        let formatted_objects: String = objects.into_iter().map(|b| b.to_string()).collect::<Vec<_>>().join("\n");
         info!("Object list:\n{}", formatted_objects);
         Ok(())
     }
@@ -747,7 +746,7 @@ impl S3Client {
                 }
                 // 构造本地绝对路径
                 // S3 Key: "data/logs/2023.log" -> Local: "/tmp/backup/data/logs/2023.log"
-                let relative_key = key.strip_prefix(&prefix_with_slash).unwrap_or(&key).trim_start_matches('/').to_string();
+                let relative_key = key.strip_prefix(&prefix_with_slash).unwrap_or(key).trim_start_matches('/').to_string();
                 let local_path = Path::new(local_base_dir).join(relative_key);
                 // 确保父目录存在
                 if let Some(parent) = local_path.parent() {
@@ -967,15 +966,15 @@ impl S3Client {
                             xml.push_str(&format!("    <ID>{}</ID>\n", id));
                         }
                         xml.push_str(&format!("    <Status>{}</Status>\n", rule.status().as_str()));
-                        if let Some(expiration) = rule.expiration() {
-                            if let Some(days) = expiration.days() {
-                                xml.push_str(&format!("    <Expiration><Days>{}</Days></Expiration>\n", days));
-                            }
+                        if let Some(expiration) = rule.expiration()
+                            && let Some(days) = expiration.days()
+                        {
+                            xml.push_str(&format!("    <Expiration><Days>{}</Days></Expiration>\n", days));
                         }
-                        if let Some(filter) = rule.filter() {
-                            if let Some(prefix) = filter.prefix() {
-                                xml.push_str(&format!("    <Filter><Prefix>{}</Prefix></Filter>\n", prefix));
-                            }
+                        if let Some(filter) = rule.filter()
+                            && let Some(prefix) = filter.prefix()
+                        {
+                            xml.push_str(&format!("    <Filter><Prefix>{}</Prefix></Filter>\n", prefix));
                         }
                         xml.push_str("  </Rule>\n");
                     }
