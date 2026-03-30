@@ -35,6 +35,9 @@ enum SubCommand {
     /// 交互式配置管理
     Config,
 
+    /// 输出当前账户信息
+    Output,
+
     /// 创建存储桶
     Mb {
         #[arg(help = "存储桶名称 (s3://bucket 或 bucket)")]
@@ -204,7 +207,7 @@ async fn show_accounts_table() -> Result<()> {
         .load_preset(UTF8_FULL)
         .set_header(vec![
             Cell::new("USER").fg(Color::Cyan),
-            Cell::new("ACCESS_KEY").fg(Color::Cyan),
+            Cell::new("DESCRIPTION").fg(Color::Cyan),
             Cell::new("SECRET_KEY").fg(Color::Cyan),
             Cell::new("URL").fg(Color::Cyan),
             Cell::new("BUCKETS").fg(Color::Cyan),
@@ -227,9 +230,11 @@ async fn show_accounts_table() -> Result<()> {
             Err(e) => format!("(error: {})", e),
         };
 
+        let description = account.description.as_deref().unwrap_or("");
+
         table.add_row(vec![
             Cell::new(&account.user).fg(Color::Green),
-            Cell::new(&account.access_key),
+            Cell::new(description),
             Cell::new(&account.secret_key),
             Cell::new(&account.url),
             Cell::new(&buckets_str),
@@ -593,6 +598,12 @@ async fn main() -> Result<()> {
         SubCommand::Show | SubCommand::Config => {
             // 已经在上面处理了
         }
+        SubCommand::Output => {
+            println!("URL: {}", account.url);
+            println!("Bucket: ");
+            println!("Access Key: {}", account.access_key);
+            println!("Secret Key: {}", account.secret_key);
+        }
         SubCommand::Mb { bucket } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             s3_client.create_bucket(&bucket_name).await?;
@@ -609,8 +620,20 @@ async fn main() -> Result<()> {
             key,
         } => {
             let bucket_name = parse_bucket_url(&bucket)?;
-            // 如果没有指定 key，使用本地文件路径作为 key
-            let key = key.unwrap_or_else(|| local_file.clone());
+            // 如果没有指定 key，根据文件路径类型生成 key
+            let key = key.unwrap_or_else(|| {
+                let path = std::path::Path::new(&local_file);
+                if path.is_absolute() {
+                    // 绝对路径：只取文件名
+                    path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or(&local_file)
+                        .to_string()
+                } else {
+                    // 相对路径：使用相对路径（规范化为 Unix 风格）
+                    local_file.replace("\\", "/")
+                }
+            });
             let file_size = tokio::fs::metadata(&local_file).await?.len();
             if file_size > CHUNK_SIZE as u64 {
                 s3_client.upload_file_multipart(&bucket_name, &local_file, &key).await?;

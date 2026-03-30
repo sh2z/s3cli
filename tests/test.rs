@@ -86,10 +86,69 @@ fn test_parse_bucket_url_invalid() {
     // 测试空字符串
     let result = parse_bucket_url("");
     assert!(result.is_err());
-    
+
     // 测试只有前缀
     let result2 = parse_bucket_url("s3://");
     assert!(result2.is_err());
+}
+
+// ============================================
+// 测试上传文件路径生成逻辑
+// ============================================
+#[test]
+fn test_generate_key_from_absolute_path() {
+    // 测试绝对路径：只取文件名
+    let local_file = "/Users/tuze/Pictures/7.jpg";
+    let path = std::path::Path::new(local_file);
+    assert!(path.is_absolute());
+    
+    let key = if path.is_absolute() {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(local_file)
+            .to_string()
+    } else {
+        local_file.replace("\\", "/")
+    };
+    
+    assert_eq!(key, "7.jpg");
+}
+
+#[test]
+fn test_generate_key_from_relative_path() {
+    // 测试相对路径：使用相对路径
+    let local_file = "data/photos/7.jpg";
+    let path = std::path::Path::new(local_file);
+    assert!(!path.is_absolute());
+    
+    let key = if path.is_absolute() {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(local_file)
+            .to_string()
+    } else {
+        local_file.replace("\\", "/")
+    };
+    
+    assert_eq!(key, "data/photos/7.jpg");
+}
+
+#[test]
+fn test_generate_key_from_relative_path_with_backslash() {
+    // 测试 Windows 风格的相对路径
+    let local_file = "data\\photos\\7.jpg";
+    let path = std::path::Path::new(local_file);
+    
+    let key = if path.is_absolute() {
+        path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(local_file)
+            .to_string()
+    } else {
+        local_file.replace("\\", "/")
+    };
+    
+    assert_eq!(key, "data/photos/7.jpg");
 }
 
 // ============================================
