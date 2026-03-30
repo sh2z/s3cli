@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: s3cli
+  PROJECT_NAME: cli
+
+jobs:
+  build-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: s3cli
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact_name: s3cli
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: s3cli
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: s3cli
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --bin ${{ env.BINARY_NAME }}
+
+      - name: Prepare artifact
+        run: |
+          mkdir -p release-artifacts
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} release-artifacts/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-${{ matrix.target }}
+          path: release-artifacts/${{ env.BINARY_NAME }}
+
+  publish-release:
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.BINARY_NAME }}-*
+          merge-multiple: true
+          path: release-artifacts
+
+      - name: Prepare release files
+        run: |
+          cd release-artifacts
+          for file in *; do
+            if [ -f "$file" ]; then
+              tar -czf "${file}.tar.gz" "$file"
+              sha256sum "${file}.tar.gz" > "${file}.tar.gz.sha256"
+            fi
+          done
+          ls -la
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-artifacts/*.tar.gz
+            release-artifacts/*.sha256
+          generate_release_notes: true
+          draft: false
+          prerelease: false
