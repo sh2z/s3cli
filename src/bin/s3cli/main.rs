@@ -208,9 +208,10 @@ async fn show_accounts_table() -> Result<()> {
         .set_header(vec![
             Cell::new("USER").fg(Color::Cyan),
             Cell::new("DESCRIPTION").fg(Color::Cyan),
+            Cell::new("BUCKETS").fg(Color::Cyan),
+            Cell::new("ACCESS_KEY").fg(Color::Cyan),
             Cell::new("SECRET_KEY").fg(Color::Cyan),
             Cell::new("URL").fg(Color::Cyan),
-            Cell::new("BUCKETS").fg(Color::Cyan),
         ])
         .set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
@@ -235,9 +236,10 @@ async fn show_accounts_table() -> Result<()> {
         table.add_row(vec![
             Cell::new(&account.user).fg(Color::Green),
             Cell::new(description),
+            Cell::new(&buckets_str),
+            Cell::new(&account.access_key),
             Cell::new(&account.secret_key),
             Cell::new(&account.url),
-            Cell::new(&buckets_str),
         ]);
     }
 
