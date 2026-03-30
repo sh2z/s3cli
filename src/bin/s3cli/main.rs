@@ -415,7 +415,7 @@ mod config_editor {
 
             // 确认删除
             let confirm = Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt(&format!("确认删除账户 '{}'？", deleted_name))
+                .with_prompt(format!("确认删除账户 '{}'？", deleted_name))
                 .default(false)
                 .interact()?;
 
