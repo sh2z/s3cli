@@ -6,17 +6,12 @@ use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, Color, Table};
-use dialoguer::{Input, Select, Confirm, theme::ColorfulTheme};
+use dialoguer::{Confirm, Input, Select, theme::ColorfulTheme};
 use owo_colors::OwoColorize;
 use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
-#[command(
-    author = "sh2z",
-    version = "3.0",
-    about = "s3cli - Ceph RGW 客户端工具",
-    long_about = "支持多用户的 Ceph RGW 命令行工具"
-)]
+#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具")]
 struct Params {
     /// 用户名（可选，省略时使用 default_account）
     #[arg(index = 1)]
@@ -205,14 +200,7 @@ async fn show_accounts_table() -> Result<()> {
     let mut table = Table::new();
     table
         .load_preset(UTF8_FULL)
-        .set_header(vec![
-            Cell::new("USER").fg(Color::Cyan),
-            Cell::new("DESCRIPTION").fg(Color::Cyan),
-            Cell::new("BUCKETS").fg(Color::Cyan),
-            Cell::new("ACCESS_KEY").fg(Color::Cyan),
-            Cell::new("SECRET_KEY").fg(Color::Cyan),
-            Cell::new("URL").fg(Color::Cyan),
-        ])
+        .set_header(vec![Cell::new("USER").fg(Color::Cyan), Cell::new("DESCRIPTION").fg(Color::Cyan), Cell::new("BUCKETS").fg(Color::Cyan), Cell::new("ACCESS_KEY").fg(Color::Cyan), Cell::new("SECRET_KEY").fg(Color::Cyan), Cell::new("URL").fg(Color::Cyan)])
         .set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
     // 为每个账户获取桶列表并添加到表格
@@ -233,14 +221,7 @@ async fn show_accounts_table() -> Result<()> {
 
         let description = account.description.as_deref().unwrap_or("");
 
-        table.add_row(vec![
-            Cell::new(&account.user).fg(Color::Green),
-            Cell::new(description),
-            Cell::new(&buckets_str),
-            Cell::new(&account.access_key),
-            Cell::new(&account.secret_key),
-            Cell::new(&account.url),
-        ]);
+        table.add_row(vec![Cell::new(&account.user).fg(Color::Green), Cell::new(description), Cell::new(&buckets_str), Cell::new(&account.access_key), Cell::new(&account.secret_key), Cell::new(&account.url)]);
     }
 
     println!("{}", table);
@@ -294,13 +275,7 @@ mod config_editor {
             loop {
                 println!("\n{}", "⚙️  S3 配置管理\n".bold());
 
-                let items = vec![
-                    "添加账户",
-                    "删除账户",
-                    "设置默认账户",
-                    "查看配置",
-                    "退出",
-                ];
+                let items = vec!["添加账户", "删除账户", "设置默认账户", "查看配置", "退出"];
 
                 let selection = Select::with_theme(&ColorfulTheme::default())
                     .with_prompt("选择操作")
@@ -359,14 +334,10 @@ mod config_editor {
                 .interact_text()?;
 
             // 输入 Access Key
-            let access_key: String = Input::with_theme(&ColorfulTheme::default())
-                .with_prompt("Access Key")
-                .interact_text()?;
+            let access_key: String = Input::with_theme(&ColorfulTheme::default()).with_prompt("Access Key").interact_text()?;
 
             // 输入 Secret Key
-            let secret_key: String = Input::with_theme(&ColorfulTheme::default())
-                .with_prompt("Secret Key")
-                .interact_text()?;
+            let secret_key: String = Input::with_theme(&ColorfulTheme::default()).with_prompt("Secret Key").interact_text()?;
 
             // 确认添加
             let confirm = Confirm::with_theme(&ColorfulTheme::default())
@@ -405,7 +376,9 @@ mod config_editor {
             }
 
             // 构建账户列表
-            let mut account_items: Vec<String> = config.accounts.iter()
+            let mut account_items: Vec<String> = config
+                .accounts
+                .iter()
                 .map(|a| {
                     let is_default = a.user == config.default_account;
                     if is_default {
@@ -510,13 +483,7 @@ mod config_editor {
             for account in &config.accounts {
                 let is_default = account.user == config.default_account;
                 let star = if is_default { "★" } else { " " };
-                println!(
-                    "  {} {} - {} ({})",
-                    star,
-                    account.user.cyan(),
-                    account.url.dimmed(),
-                    account.description.as_deref().unwrap_or("无描述").dimmed()
-                );
+                println!("  {} {} - {} ({})", star, account.user.cyan(), account.url.dimmed(), account.description.as_deref().unwrap_or("无描述").dimmed());
             }
             println!();
             println!("配置文件位置：~/.config/s3cli/ceph_keys.yaml");
@@ -624,12 +591,16 @@ async fn main() -> Result<()> {
         SubCommand::Table | SubCommand::Config | SubCommand::Show => {
             // 已经在上面处理了
         }
-        SubCommand::Mb { bucket } => {
+        SubCommand::Mb {
+            bucket,
+        } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             s3_client.create_bucket(&bucket_name).await?;
             println!("Bucket s3://{} created successfully.", bucket_name);
         }
-        SubCommand::Rb { bucket } => {
+        SubCommand::Rb {
+            bucket,
+        } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             s3_client.delete_bucket(&bucket_name).await?;
             println!("Bucket s3://{} deleted successfully.", bucket_name);
@@ -645,10 +616,7 @@ async fn main() -> Result<()> {
                 let path = std::path::Path::new(&local_file);
                 if path.is_absolute() {
                     // 绝对路径：只取文件名
-                    path.file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or(&local_file)
-                        .to_string()
+                    path.file_name().and_then(|n| n.to_str()).unwrap_or(&local_file).to_string()
                 } else {
                     // 相对路径：使用相对路径（规范化为 Unix 风格）
                     local_file.replace("\\", "/")
@@ -671,9 +639,7 @@ async fn main() -> Result<()> {
         } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             let prefix_str = prefix.as_deref().unwrap_or("");
-            s3_client
-                .upload_dir_concurrent(&bucket_name, &local_dir, prefix_str)
-                .await?;
+            s3_client.upload_dir_concurrent(&bucket_name, &local_dir, prefix_str).await?;
             // 构建完整访问 URL
             let access_url = format!("{}/{}/{}", account.url.trim_end_matches('/'), bucket_name, prefix_str);
             println!("uploaded successfully: {}", access_url);
@@ -685,10 +651,7 @@ async fn main() -> Result<()> {
         } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             s3_client.download_file(&bucket_name, &key, &local_file).await?;
-            println!(
-                "key s3://{}/{} -> {} downloaded successfully.",
-                bucket_name, key, local_file
-            );
+            println!("key s3://{}/{} -> {} downloaded successfully.", bucket_name, key, local_file);
         }
         SubCommand::Getr {
             bucket,
@@ -696,23 +659,17 @@ async fn main() -> Result<()> {
             local_dir,
         } => {
             let bucket_name = parse_bucket_url(&bucket)?;
-            s3_client
-                .download_dir_concurrent(&bucket_name, prefix.as_deref().unwrap_or(""), &local_dir)
-                .await?;
-            println!(
-                "Directory s3://{}/{} -> {} downloaded successfully.",
-                bucket_name,
-                prefix.as_deref().unwrap_or(""),
-                local_dir
-            );
+            s3_client.download_dir_concurrent(&bucket_name, prefix.as_deref().unwrap_or(""), &local_dir).await?;
+            println!("Directory s3://{}/{} -> {} downloaded successfully.", bucket_name, prefix.as_deref().unwrap_or(""), local_dir);
         }
-        SubCommand::Ls { bucket, prefix } => match bucket {
+        SubCommand::Ls {
+            bucket,
+            prefix,
+        } => match bucket {
             Some(bucket) => {
                 let bucket_name = parse_bucket_url(&bucket)?;
                 // 获取对象列表并以 s3cmd 格式显示
-                let objects = s3_client
-                    .list_objects_with_info(&bucket_name, prefix.as_deref().unwrap_or(""))
-                    .await?;
+                let objects = s3_client.list_objects_with_info(&bucket_name, prefix.as_deref().unwrap_or("")).await?;
                 print_objects_s3cmd_format(&account, &objects);
             }
             None => {
@@ -730,13 +687,8 @@ async fn main() -> Result<()> {
         } => {
             let src_bucket_name = parse_bucket_url(&src_bucket)?;
             let dst_bucket_name = parse_bucket_url(&dst_bucket)?;
-            s3_client
-                .copy_object(&src_bucket_name, &src_key, &dst_bucket_name, &dst_key)
-                .await?;
-            println!(
-                "Object copied successfully from s3://{}/{} -> s3://{}/{}",
-                src_bucket_name, src_key, dst_bucket_name, dst_key
-            );
+            s3_client.copy_object(&src_bucket_name, &src_key, &dst_bucket_name, &dst_key).await?;
+            println!("Object copied successfully from s3://{}/{} -> s3://{}/{}", src_bucket_name, src_key, dst_bucket_name, dst_key);
         }
         SubCommand::Mv {
             src_bucket,
@@ -746,31 +698,29 @@ async fn main() -> Result<()> {
         } => {
             let src_bucket_name = parse_bucket_url(&src_bucket)?;
             let dst_bucket_name = parse_bucket_url(&dst_bucket)?;
-            s3_client
-                .move_object(&src_bucket_name, &src_key, &dst_bucket_name, &dst_key)
-                .await?;
-            println!(
-                "Object moved successfully from s3://{}/{} -> s3://{}/{}",
-                src_bucket_name, src_key, dst_bucket_name, dst_key
-            );
+            s3_client.move_object(&src_bucket_name, &src_key, &dst_bucket_name, &dst_key).await?;
+            println!("Object moved successfully from s3://{}/{} -> s3://{}/{}", src_bucket_name, src_key, dst_bucket_name, dst_key);
         }
-        SubCommand::Del { bucket, key } => {
+        SubCommand::Del {
+            bucket,
+            key,
+        } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             s3_client.delete_object(&bucket_name, &key).await?;
             println!("Object s3://{}/{} deleted successfully.", bucket_name, key);
         }
-        SubCommand::Delr { bucket, prefix } => {
+        SubCommand::Delr {
+            bucket,
+            prefix,
+        } => {
             let bucket_name = parse_bucket_url(&bucket)?;
-            s3_client
-                .delete_object_with_prefix(&bucket_name, prefix.as_deref().unwrap_or(""))
-                .await?;
-            println!(
-                "Objects with prefix s3://{}/{} deleted successfully.",
-                bucket_name,
-                prefix.as_deref().unwrap_or("")
-            );
+            s3_client.delete_object_with_prefix(&bucket_name, prefix.as_deref().unwrap_or("")).await?;
+            println!("Objects with prefix s3://{}/{} deleted successfully.", bucket_name, prefix.as_deref().unwrap_or(""));
         }
-        SubCommand::Info { bucket, key } => {
+        SubCommand::Info {
+            bucket,
+            key,
+        } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             // 显示用户信息
             println!("user: \"{}\"", account.user);
@@ -779,7 +729,7 @@ async fn main() -> Result<()> {
             println!("secret_key: \"{}\"", account.secret_key);
             println!("url: \"{}\"", account.url);
             println!();
-            
+
             match key {
                 Some(key) => {
                     let obj_info = s3_client.display_object_info(&bucket_name, &key).await?;
@@ -797,9 +747,7 @@ async fn main() -> Result<()> {
             mime,
         } => {
             let bucket_name = parse_bucket_url(&bucket)?;
-            s3_client
-                .set_prefix_mime(&bucket_name, &prefix.unwrap_or_default(), &mime)
-                .await?;
+            s3_client.set_prefix_mime(&bucket_name, &prefix.unwrap_or_default(), &mime).await?;
             println!("MIME type set to {} .", mime);
         }
         SubCommand::Signurl {
@@ -811,12 +759,17 @@ async fn main() -> Result<()> {
             let url = s3_client.sign_url(&bucket_name, &key, expires).await?;
             println!("Signed URL: {}", url);
         }
-        SubCommand::Url { bucket, key } => {
+        SubCommand::Url {
+            bucket,
+            key,
+        } => {
             let bucket_name = parse_bucket_url(&bucket)?;
             let url = s3_client.get_object_raw_url(&bucket_name, &key).await?;
             println!("Raw URL: {}", url);
         }
-        SubCommand::Public { bucket_url } => {
+        SubCommand::Public {
+            bucket_url,
+        } => {
             // 需要 admin 权限
             let bucket = parse_bucket_url(&bucket_url)?;
             s3_client.set_bucket_public(&bucket).await?;
@@ -825,11 +778,14 @@ async fn main() -> Result<()> {
             let info = s3_client.display_bucket_info(&bucket).await?;
             println!("{}", info);
         }
-        SubCommand::Expire { bucket_url, days } => {
+        SubCommand::Expire {
+            bucket_url,
+            days,
+        } => {
             // 需要 admin 权限
             // expire 只接受 bucket 名称，不接受路径
             let bucket = parse_bucket_url(&bucket_url)?;
-            
+
             // 检查 bucket_url 是否包含路径
             let path_part = bucket_url.strip_prefix("s3://").unwrap_or(&bucket_url);
             if path_part.contains('/') {
@@ -843,9 +799,14 @@ async fn main() -> Result<()> {
             let info = s3_client.display_bucket_info(&bucket).await?;
             println!("{}", info);
         }
-        SubCommand::Lifecycle { days, bucket_path } => {
+        SubCommand::Lifecycle {
+            days,
+            bucket_path,
+        } => {
             // 需要 admin 权限
-            let bucket_path_clean = bucket_path.strip_prefix("s3://").ok_or_else(|| anyhow!("Invalid bucket path, should be like s3://bucket/prefix"))?;
+            let bucket_path_clean = bucket_path
+                .strip_prefix("s3://")
+                .ok_or_else(|| anyhow!("Invalid bucket path, should be like s3://bucket/prefix"))?;
 
             // 分离 bucket 和 prefix
             let parts: Vec<&str> = bucket_path_clean.splitn(2, '/').collect();

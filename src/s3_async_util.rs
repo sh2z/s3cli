@@ -1,14 +1,14 @@
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use aws_config::BehaviorVersion;
+use aws_sdk_s3::Client;
+use aws_sdk_s3::Config;
 use aws_sdk_s3::config::{Credentials, Region};
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::types::MetadataDirective;
 use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart};
 use aws_sdk_s3::types::{Delete, ObjectIdentifier}; // 用于批量删除
-use aws_sdk_s3::Client;
-use aws_sdk_s3::Config;
 use futures::future::try_join_all;
 use log::{info, warn};
 use std::path::Path;
@@ -529,10 +529,10 @@ impl S3Client {
         let client = self.client.clone();
         let mut resp: Vec<ObjectInfo> = Vec::new();
         let mut paginator = client.list_objects_v2().bucket(bucket).prefix(prefix).into_paginator().send();
-        
+
         while let Some(page) = paginator.next().await {
             let page = page?;
-            
+
             // 处理公共前缀（目录）
             for common_prefix in page.common_prefixes() {
                 if let Some(prefix_str) = common_prefix.prefix() {
@@ -544,22 +544,23 @@ impl S3Client {
                     });
                 }
             }
-            
+
             // 处理对象
             for obj in page.contents() {
                 let key = obj.key().unwrap_or_default();
                 if key.ends_with('/') {
                     continue;
                 }
-                
+
                 // 转换大小
                 let size = obj.size().unwrap_or(0) as u64;
-                
+
                 // 转换时间
-                let last_modified = obj.last_modified()
+                let last_modified = obj
+                    .last_modified()
                     .and_then(|dt| dt.to_millis().ok())
                     .map(|millis| UNIX_EPOCH + Duration::from_millis(millis as u64));
-                
+
                 resp.push(ObjectInfo {
                     path: format!("s3://{}/{}", bucket, key),
                     size,
@@ -568,7 +569,7 @@ impl S3Client {
                 });
             }
         }
-        
+
         // 排序：目录在前，文件在后，按路径排序
         resp.sort_by(|a, b| {
             if a.is_dir && !b.is_dir {
@@ -579,7 +580,7 @@ impl S3Client {
                 a.path.cmp(&b.path)
             }
         });
-        
+
         Ok(resp)
     }
 
@@ -896,11 +897,7 @@ impl S3Client {
             Err(e) => {
                 // 如果没有 policy，AWS SDK 会返回 NoSuchBucketPolicy
                 let err_str = e.to_string();
-                if err_str.contains("NoSuchBucketPolicy") {
-                    Ok(None)
-                } else {
-                    Err(e.into())
-                }
+                if err_str.contains("NoSuchBucketPolicy") { Ok(None) } else { Err(e.into()) }
             }
         }
     }
@@ -1006,21 +1003,11 @@ impl S3Client {
         let rule = aws_sdk_s3::types::LifecycleRule::builder()
             .id(format!("expire-{}-after-{}-days", prefix.replace("/", "-"), days))
             .status(aws_sdk_s3::types::ExpirationStatus::Enabled)
-            .filter(
-                aws_sdk_s3::types::LifecycleRuleFilter::builder()
-                    .prefix(prefix)
-                    .build()
-            )
-            .expiration(
-                aws_sdk_s3::types::LifecycleExpiration::builder()
-                    .days(days)
-                    .build()
-            )
+            .filter(aws_sdk_s3::types::LifecycleRuleFilter::builder().prefix(prefix).build())
+            .expiration(aws_sdk_s3::types::LifecycleExpiration::builder().days(days).build())
             .build()?;
 
-        let lifecycle_config = aws_sdk_s3::types::BucketLifecycleConfiguration::builder()
-            .rules(rule)
-            .build()?;
+        let lifecycle_config = aws_sdk_s3::types::BucketLifecycleConfiguration::builder().rules(rule).build()?;
 
         client
             .put_bucket_lifecycle_configuration()
@@ -1047,7 +1034,7 @@ impl S3Client {
         // 这里使用 copy_object 来更新对象的元数据
         let client = self.client.clone();
         let copy_source = format!("{}/{}", urlencoding::encode(bucket), urlencoding::encode(key));
-        
+
         client
             .copy_object()
             .bucket(bucket)
@@ -1057,7 +1044,7 @@ impl S3Client {
             .metadata("delete-after", days.to_string())
             .send()
             .await?;
-        
+
         info!("Object expire set: s3://{}/{} will expire in {} days", bucket, key, days);
         Ok(())
     }
