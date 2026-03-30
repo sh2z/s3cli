@@ -29,14 +29,14 @@ struct Params {
 
 #[derive(Subcommand, Debug)]
 enum SubCommand {
-    /// 显示所有账户信息
-    Show,
+    /// 以表格形式显示所有账户信息
+    Table,
 
     /// 交互式配置管理
     Config,
 
     /// 输出当前账户信息
-    Output,
+    Show,
 
     /// 创建存储桶
     Mb {
@@ -549,8 +549,8 @@ mod config_editor {
 async fn main() -> Result<()> {
     let params = Params::parse();
 
-    // 处理 show 命令（不需要用户参数）
-    if let Some(SubCommand::Show) = &params.command {
+    // 处理 table 命令（不需要用户参数）
+    if let Some(SubCommand::Table) = &params.command {
         show_accounts_table().await?;
         return Ok(());
     }
@@ -558,6 +558,30 @@ async fn main() -> Result<()> {
     // 处理 config 命令（不需要用户参数）
     if let Some(SubCommand::Config) = &params.command {
         config_editor::Editor::run()?;
+        return Ok(());
+    }
+
+    // 处理 show 命令（不需要用户参数）
+    if let Some(SubCommand::Show) = &params.command {
+        // 输出当前账户信息
+        let account = get_account_config(None)?;
+        // 获取桶列表
+        let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
+        let buckets_result = s3_client.list_buckets().await;
+        let buckets_str = match buckets_result {
+            Ok(buckets) => {
+                if buckets.is_empty() {
+                    "(no buckets)".to_string()
+                } else {
+                    buckets.join(", ")
+                }
+            }
+            Err(e) => format!("(error: {})", e),
+        };
+        println!("URL: {}", account.url);
+        println!("Bucket: {}", buckets_str);
+        println!("Access Key: {}", account.access_key);
+        println!("Secret Key: {}", account.secret_key);
         return Ok(());
     }
 
@@ -597,27 +621,8 @@ async fn main() -> Result<()> {
     let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
 
     match command {
-        SubCommand::Show | SubCommand::Config => {
+        SubCommand::Table | SubCommand::Config | SubCommand::Show => {
             // 已经在上面处理了
-        }
-        SubCommand::Output => {
-            // 获取桶列表
-            let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
-            let buckets_result = s3_client.list_buckets().await;
-            let buckets_str = match buckets_result {
-                Ok(buckets) => {
-                    if buckets.is_empty() {
-                        "(no buckets)".to_string()
-                    } else {
-                        buckets.join(", ")
-                    }
-                }
-                Err(e) => format!("(error: {})", e),
-            };
-            println!("URL: {}", account.url);
-            println!("Bucket: {}", buckets_str);
-            println!("Access Key: {}", account.access_key);
-            println!("Secret Key: {}", account.secret_key);
         }
         SubCommand::Mb { bucket } => {
             let bucket_name = parse_bucket_url(&bucket)?;
