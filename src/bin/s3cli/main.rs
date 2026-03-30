@@ -599,8 +599,21 @@ async fn main() -> Result<()> {
             // 已经在上面处理了
         }
         SubCommand::Output => {
+            // 获取桶列表
+            let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
+            let buckets_result = s3_client.list_buckets().await;
+            let buckets_str = match buckets_result {
+                Ok(buckets) => {
+                    if buckets.is_empty() {
+                        "(no buckets)".to_string()
+                    } else {
+                        buckets.join(", ")
+                    }
+                }
+                Err(e) => format!("(error: {})", e),
+            };
             println!("URL: {}", account.url);
-            println!("Bucket: ");
+            println!("Bucket: {}", buckets_str);
             println!("Access Key: {}", account.access_key);
             println!("Secret Key: {}", account.secret_key);
         }
