@@ -114,7 +114,7 @@ impl S3Client {
     /// 显示桶列表
     pub async fn display_buckets(&self) -> Result<()> {
         let buckets = self.list_buckets().await?;
-        let formatted_buckets: String = buckets.into_iter().map(|b| format!("{}", b)).collect::<Vec<_>>().join("\n");
+        let formatted_buckets: String = buckets.into_iter().map(|b| b.to_string()).collect::<Vec<_>>().join("\n");
         info!("Bucket list :\n{}", formatted_buckets);
         Ok(())
     }
