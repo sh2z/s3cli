@@ -31,7 +31,7 @@ enum SubCommand {
     Config,
 
     /// 输出当前账户信息
-    Show,
+    Output,
 
     /// 创建存储桶
     Mb {
@@ -321,11 +321,17 @@ mod config_editor {
                 })
                 .interact_text()?;
 
-            // 输入 URL
-            let url: String = Input::with_theme(&ColorfulTheme::default())
-                .with_prompt("S3 URL")
-                .default("https://s3.example.com".to_string())
-                .interact_text()?;
+            // 输入 URL，默认值为上一个账户的 URL（如果存在）
+            let url = if let Some(last_account) = config.accounts.last() {
+                Input::with_theme(&ColorfulTheme::default())
+                    .with_prompt("S3 URL")
+                    .default(last_account.url.clone())
+                    .interact_text()?
+            } else {
+                Input::with_theme(&ColorfulTheme::default())
+                    .with_prompt("S3 URL")
+                    .interact_text()?
+            };
 
             // 输入描述
             let description: String = Input::with_theme(&ColorfulTheme::default())
@@ -528,10 +534,10 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // 处理 show 命令（不需要用户参数）
-    if let Some(SubCommand::Show) = &params.command {
+    // 处理 output 命令（支持用户参数）
+    if let Some(SubCommand::Output) = &params.command {
         // 输出当前账户信息
-        let account = get_account_config(None)?;
+        let account = get_account_config(params.user.as_deref())?;
         // 获取桶列表
         let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
         let buckets_result = s3_client.list_buckets().await;
@@ -552,20 +558,9 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // 如果没有指定用户和命令，显示默认用户信息 + 帮助
+    // 如果没有指定用户和命令，显示账户表格
     if params.user.is_none() && params.command.is_none() {
-        // 加载默认账户信息并显示
-        if let Ok(account) = get_account_config(None) {
-            println!("user: \"{}\"", account.user);
-            println!("description: \"{}\"", account.description.as_deref().unwrap_or(""));
-            println!("access_key: \"{}\"", account.access_key);
-            println!("secret_key: \"{}\"", account.secret_key);
-            println!("url: \"{}\"", account.url);
-            println!();
-        }
-        // 显示帮助信息
-        use clap::Parser;
-        let _ = <Params as Parser>::parse_from(["s3cli", "--help"]);
+        show_accounts_table().await?;
         return Ok(());
     }
 
@@ -588,7 +583,7 @@ async fn main() -> Result<()> {
     let s3_client = S3Client::new(&account.access_key, &account.secret_key, &account.url).await;
 
     match command {
-        SubCommand::Table | SubCommand::Config | SubCommand::Show => {
+        SubCommand::Table | SubCommand::Config | SubCommand::Output => {
             // 已经在上面处理了
         }
         SubCommand::Mb {

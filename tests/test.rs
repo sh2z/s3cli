@@ -174,3 +174,25 @@ fn test_config_set_default_account() -> Result<()> {
 
     Ok(())
 }
+
+// ============================================
+// 测试 output 子命令（替代原 show 子命令）
+// ============================================
+#[test]
+fn test_output_subcommand_exists() {
+    // 验证 output 子命令存在且能正确解析
+    use std::process::Command;
+    
+    let output = Command::new(env!("CARGO_BIN_EXE_s3cli"))
+        .args(&["tmp", "output"])
+        .output()
+        .expect("Failed to execute command");
+    
+    // 命令应该成功执行（exit code 0）
+    assert!(output.status.success(), "output subcommand should exist and run successfully");
+    
+    // 输出应该包含账户信息
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("URL:"), "Output should contain URL information");
+    assert!(stdout.contains("Access Key:"), "Output should contain Access Key information");
+}
