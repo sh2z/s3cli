@@ -47,20 +47,16 @@ enum SubCommand {
 
     /// 列出存储桶或对象（格式同 s3cmd）
     Ls {
-        #[arg(help = "存储桶名称 (s3://bucket 或 bucket)")]
-        bucket: Option<String>,
-        #[arg(help = "前缀")]
-        prefix: Option<String>,
+        #[arg(help = "S3 URI (s3://bucket 或 s3://bucket/prefix)")]
+        s3_uri: Option<String>,
     },
 
     /// 上传文件
     Put {
         #[arg(help = "本地文件路径")]
         local_file: String,
-        #[arg(help = "存储桶 URL (s3://bucket 或 bucket)")]
-        bucket: String,
-        #[arg(help = "对象键（可选，默认为本地文件路径）")]
-        key: Option<String>,
+        #[arg(help = "S3 URI (s3://bucket 或 s3://bucket/key)")]
+        s3_uri: String,
     },
 
     /// 下载文件
@@ -85,10 +81,8 @@ enum SubCommand {
 
     /// 递归下载目录
     Getr {
-        #[arg(help = "存储桶 URL (s3://bucket 或 bucket)")]
-        bucket: String,
-        #[arg(help = "前缀")]
-        prefix: Option<String>,
+        #[arg(help = "S3 URI (s3://bucket/prefix)")]
+        s3_uri: String,
         #[arg(help = "本地文件夹路径")]
         local_dir: String,
     },
@@ -602,12 +596,11 @@ async fn main() -> Result<()> {
         }
         SubCommand::Put {
             local_file,
-            bucket,
-            key,
+            s3_uri,
         } => {
-            let bucket_name = parse_bucket_url(&bucket)?;
-            // 如果没有指定 key，根据文件路径类型生成 key
-            let key = key.unwrap_or_else(|| {
+            let (bucket_name, uri_key) = parse_s3_uri(&s3_uri)?;
+            // 如果 URI 中没有指定 key，根据文件路径类型生成 key
+            let key = if uri_key.is_empty() {
                 let path = std::path::Path::new(&local_file);
                 if path.is_absolute() {
                     // 绝对路径：只取文件名
@@ -616,7 +609,9 @@ async fn main() -> Result<()> {
                     // 相对路径：使用相对路径（规范化为 Unix 风格）
                     local_file.replace("\\", "/")
                 }
-            });
+            } else {
+                uri_key
+            };
             let file_size = tokio::fs::metadata(&local_file).await?.len();
             if file_size > CHUNK_SIZE as u64 {
                 s3_client.upload_file_multipart(&bucket_name, &local_file, &key).await?;
@@ -649,22 +644,20 @@ async fn main() -> Result<()> {
             println!("key s3://{}/{} -> {} downloaded successfully.", bucket_name, key, local_file);
         }
         SubCommand::Getr {
-            bucket,
-            prefix,
+            s3_uri,
             local_dir,
         } => {
-            let bucket_name = parse_bucket_url(&bucket)?;
-            s3_client.download_dir_concurrent(&bucket_name, prefix.as_deref().unwrap_or(""), &local_dir).await?;
-            println!("Directory s3://{}/{} -> {} downloaded successfully.", bucket_name, prefix.as_deref().unwrap_or(""), local_dir);
+            let (bucket_name, prefix) = parse_s3_uri(&s3_uri)?;
+            s3_client.download_dir_concurrent(&bucket_name, &prefix, &local_dir).await?;
+            println!("Directory s3://{}/{} -> {} downloaded successfully.", bucket_name, prefix, local_dir);
         }
         SubCommand::Ls {
-            bucket,
-            prefix,
-        } => match bucket {
-            Some(bucket) => {
-                let bucket_name = parse_bucket_url(&bucket)?;
+            s3_uri,
+        } => match s3_uri {
+            Some(s3_uri) => {
+                let (bucket_name, prefix) = parse_s3_uri(&s3_uri)?;
                 // 获取对象列表并以 s3cmd 格式显示
-                let objects = s3_client.list_objects_with_info(&bucket_name, prefix.as_deref().unwrap_or("")).await?;
+                let objects = s3_client.list_objects_with_info(&bucket_name, &prefix).await?;
                 print_objects_s3cmd_format(&account, &objects);
             }
             None => {

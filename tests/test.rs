@@ -93,6 +93,45 @@ fn test_parse_bucket_url_invalid() {
 }
 
 // ============================================
+// 测试 S3 URI 解析（支持 s3://bucket/prefix）
+// ============================================
+#[test]
+fn test_parse_s3_uri() -> Result<()> {
+    // 测试带 s3:// 前缀和路径
+    let (bucket, prefix) = parse_s3_uri("s3://mybucket/path/to/file")?;
+    assert_eq!(bucket, "mybucket");
+    assert_eq!(prefix, "path/to/file");
+
+    // 测试只有 bucket
+    let (bucket, prefix) = parse_s3_uri("s3://mybucket")?;
+    assert_eq!(bucket, "mybucket");
+    assert_eq!(prefix, "");
+
+    // 测试 bucket + 单层前缀
+    let (bucket, prefix) = parse_s3_uri("s3://tmp/rust-")?;
+    assert_eq!(bucket, "tmp");
+    assert_eq!(prefix, "rust-");
+
+    // 测试不带 s3:// 前缀
+    let (bucket, prefix) = parse_s3_uri("mybucket/some/key")?;
+    assert_eq!(bucket, "mybucket");
+    assert_eq!(prefix, "some/key");
+
+    Ok(())
+}
+
+#[test]
+fn test_parse_s3_uri_invalid() {
+    // 测试空字符串
+    let result = parse_s3_uri("");
+    assert!(result.is_err());
+
+    // 测试只有 s3://
+    let result2 = parse_s3_uri("s3://");
+    assert!(result2.is_err());
+}
+
+// ============================================
 // 测试上传文件路径生成逻辑
 // ============================================
 #[test]

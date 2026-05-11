@@ -93,3 +93,24 @@ pub fn parse_bucket_url(bucket_url: &str) -> Result<String> {
 
     Ok(bucket_name.to_string())
 }
+
+/// 解析 S3 URI，支持 s3://bucket/prefix 或 s3://bucket 两种形式
+/// 返回 (bucket, prefix) 元组，prefix 可能为空字符串
+pub fn parse_s3_uri(uri: &str) -> Result<(String, String)> {
+    let uri = uri.trim();
+
+    if uri.is_empty() {
+        return Err(anyhow::anyhow!("S3 URI cannot be empty"));
+    }
+
+    let path = uri.strip_prefix("s3://").unwrap_or(uri);
+    let parts: Vec<&str> = path.splitn(2, '/').collect();
+    let bucket = parts[0];
+
+    if bucket.is_empty() {
+        return Err(anyhow::anyhow!("Bucket name cannot be empty"));
+    }
+
+    let prefix = if parts.len() > 1 { parts[1].to_string() } else { String::new() };
+    Ok((bucket.to_string(), prefix))
+}

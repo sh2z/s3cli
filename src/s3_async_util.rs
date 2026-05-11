@@ -733,8 +733,8 @@ impl S3Client {
     pub async fn download_dir(&self, bucket: &str, prefix: &str, local_base_dir: &str) -> Result<()> {
         info!("Starting download ,s3://{}/{} ->  {}", bucket, prefix, local_base_dir);
         let client = self.client.clone();
-        let prefix_with_slash = if prefix.is_empty() || prefix.ends_with('/') { prefix.to_string() } else { format!("{}/", prefix) };
-        let mut paginator = client.list_objects_v2().bucket(bucket).prefix(&prefix_with_slash).into_paginator().send();
+        // 查询时使用原始 prefix，不要自动加 /
+        let mut paginator = client.list_objects_v2().bucket(bucket).prefix(prefix).into_paginator().send();
         while let Some(page) = paginator.next().await {
             let page = page.context("Failed to get list page")?;
             // 遍历页面中的每个对象
@@ -746,8 +746,8 @@ impl S3Client {
                 }
                 // 构造本地绝对路径
                 // S3 Key: "data/logs/2023.log" -> Local: "/tmp/backup/data/logs/2023.log"
-                let relative_key = key.strip_prefix(&prefix_with_slash).unwrap_or(key).trim_start_matches('/').to_string();
-                let local_path = Path::new(local_base_dir).join(relative_key);
+                let relative_key = Self::get_relative_path(key, prefix);
+                let local_path = Path::new(local_base_dir).join(&relative_key);
                 // 确保父目录存在
                 if let Some(parent) = local_path.parent() {
                     fs::create_dir_all(parent).await?;
@@ -770,11 +770,24 @@ impl S3Client {
     }
 
     pub fn get_relative_path(key: &str, prefix: &str) -> String {
-        let prefix_with_slash = if prefix.is_empty() || prefix.ends_with('/') { prefix.to_string() } else { format!("{}/", prefix) };
-        key.strip_prefix(&prefix_with_slash)
-            .unwrap_or(key) // 如果不匹配，返回原样
-            .trim_start_matches('/') // 去掉开头的斜杠
-            .to_string()
+        if prefix.is_empty() {
+            return key.trim_start_matches('/').to_string();
+        }
+        // prefix 以 / 结尾时认为是目录，去掉 prefix 得到相对路径
+        // prefix 不以 / 结尾时认为是文件名前缀，保留完整 key 作为相对路径
+        if prefix.ends_with('/') {
+            key.strip_prefix(prefix)
+                .unwrap_or(key)
+                .trim_start_matches('/')
+                .to_string()
+        } else {
+            // 先尝试 strip 带 / 的 prefix（处理 prefix 本身是目录但省略了尾部 / 的情况）
+            let prefix_with_slash = format!("{}/", prefix);
+            key.strip_prefix(&prefix_with_slash)
+                .unwrap_or(key)
+                .trim_start_matches('/')
+                .to_string()
+        }
     }
 
     /// 并发下载目录
@@ -783,8 +796,8 @@ impl S3Client {
         let client = self.client.clone();
         let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_TASKS));
         let mut tasks = Vec::new();
-        let prefix_with_slash = if prefix.is_empty() || prefix.ends_with('/') { prefix.to_string() } else { format!("{}/", prefix) };
-        let mut paginator = client.list_objects_v2().bucket(bucket).prefix(&prefix_with_slash).into_paginator().send();
+        // 查询时使用原始 prefix，不要自动加 /
+        let mut paginator = client.list_objects_v2().bucket(bucket).prefix(prefix).into_paginator().send();
         while let Some(page) = paginator.next().await {
             let page = page?;
             for obj in page.contents() {
@@ -796,10 +809,10 @@ impl S3Client {
                 let client = client.clone();
                 let bucket = bucket.to_string();
                 let local_base_dir = local_base_dir.to_string();
-                let prefix_with_slash = prefix_with_slash.clone();
+                let prefix = prefix.to_string();
                 let task = tokio::spawn(async move {
                     let _permit = permit;
-                    let relative_key = key.strip_prefix(&prefix_with_slash).unwrap_or(&key).trim_start_matches('/').to_string();
+                    let relative_key = Self::get_relative_path(&key, &prefix);
                     let local_path = Path::new(&local_base_dir).join(&relative_key);
                     if let Some(parent) = local_path.parent() {
                         fs::create_dir_all(parent).await?;
