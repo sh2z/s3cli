@@ -43,15 +43,6 @@ tb:
 tr:
     npm run tauri dev
 
-macos:
-    cargo install --path . --root ~/.dev --bin "{{ bin_name }}" --force
-
-# s3cli tmp ls s3://tmp
-# s3cli tmp ls s3://tmp/rust-
-# s3cli tmp getr s3://tmp/rust- .
-# s3cli tmp put tests/test.rs s3://tmp
-# s3cli tmp put tests/test.rs s3://tmp/11.rs
-
 install-macos:
     cargo install --path . --root ~/.dev --bin "{{ bin_name }}" --force
 
