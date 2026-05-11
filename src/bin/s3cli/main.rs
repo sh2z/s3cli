@@ -46,12 +46,14 @@ enum SubCommand {
     },
 
     /// 列出存储桶或对象（格式同 s3cmd）
+    #[command(long_about = "列出存储桶或对象\n\n示例:\n  s3cli tmp ls s3://tmp\n  s3cli tmp ls s3://tmp/rust-")]
     Ls {
         #[arg(help = "S3 URI (s3://bucket 或 s3://bucket/prefix)")]
         s3_uri: Option<String>,
     },
 
     /// 上传文件
+    #[command(long_about = "上传文件\n\n示例:\n  s3cli tmp put tests/test.rs s3://tmp\n  s3cli tmp put tests/test.rs s3://tmp/11.rs")]
     Put {
         #[arg(help = "本地文件路径")]
         local_file: String,
@@ -80,6 +82,7 @@ enum SubCommand {
     },
 
     /// 递归下载目录
+    #[command(long_about = "递归下载目录\n\n示例:\n  s3cli tmp getr s3://tmp/rust- .")]
     Getr {
         #[arg(help = "S3 URI (s3://bucket/prefix)")]
         s3_uri: String,
