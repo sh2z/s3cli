@@ -11,7 +11,7 @@ use owo_colors::OwoColorize;
 use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
-#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  s3cli tmp ls s3://tmp\n  s3cli tmp ls s3://tmp/rust-\n  s3cli tmp getr s3://tmp/rust- .\n  s3cli tmp put tests/test.rs s3://tmp\n  s3cli tmp put tests/test.rs s3://tmp/11.rs")]
+#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  s3cli tmp ls s3://tmp\n  s3cli tmp ls s3://tmp/rust-\n  s3cli tmp getr s3://tmp/rust- .\n  s3cli tmp put tests/test.rs s3://tmp\n  s3cli tmp put tests/test.rs s3://tmp/11.rs\n  s3cli tmp putr tests s3://tmp\n  s3cli tmp putr tests s3://tmp/mytests")]
 struct Params {
     /// 用户名（可选，省略时使用 default_account）
     #[arg(index = 1)]
@@ -73,10 +73,8 @@ enum SubCommand {
     Putr {
         #[arg(help = "本地文件夹路径")]
         local_dir: String,
-        #[arg(help = "存储桶 URL (s3://bucket 或 bucket)")]
-        bucket: String,
-        #[arg(help = "前缀")]
-        prefix: Option<String>,
+        #[arg(help = "S3 URI (s3://bucket 或 s3://bucket/prefix)")]
+        s3_uri: String,
     },
 
     /// 递归下载目录
@@ -624,14 +622,22 @@ async fn main() -> Result<()> {
         }
         SubCommand::Putr {
             local_dir,
-            bucket,
-            prefix,
+            s3_uri,
         } => {
-            let bucket_name = parse_bucket_url(&bucket)?;
-            let prefix_str = prefix.as_deref().unwrap_or("");
-            s3_client.upload_dir_concurrent(&bucket_name, &local_dir, prefix_str).await?;
-            // 构建完整访问 URL
-            let access_url = format!("{}/{}/{}", account.url.trim_end_matches('/'), bucket_name, prefix_str);
+            let local_path = std::path::Path::new(&local_dir);
+            if !local_path.exists() {
+                return Err(anyhow!("路径不存在: {}", local_dir));
+            }
+            if !local_path.is_dir() {
+                return Err(anyhow!("不是文件夹: {}，putr 只支持上传文件夹", local_dir));
+            }
+            let (bucket_name, prefix) = parse_s3_uri(&s3_uri)?;
+            s3_client.upload_dir_concurrent(&bucket_name, &local_dir, &prefix).await?;
+            let access_url = if prefix.is_empty() {
+                format!("{}/{}", account.url.trim_end_matches('/'), bucket_name)
+            } else {
+                format!("{}/{}/{}", account.url.trim_end_matches('/'), bucket_name, prefix)
+            };
             println!("uploaded successfully: {}", access_url);
         }
         SubCommand::Get {
