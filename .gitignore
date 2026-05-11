@@ -2,7 +2,7 @@
 *.jpg
 *.tgz
 mydir/
-^bin/
+bin/
 target/
 files/
 d5/
