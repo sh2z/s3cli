@@ -11,7 +11,7 @@ use owo_colors::OwoColorize;
 use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
-#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  s3cli tmp ls s3://tmp\n  s3cli tmp ls s3://tmp/rust-\n  s3cli tmp getr s3://tmp/rust- .\n  s3cli tmp put tests/test.rs s3://tmp\n  s3cli tmp put tests/test.rs s3://tmp/11.rs\n  s3cli tmp putr tests s3://tmp\n  s3cli tmp putr tests s3://tmp/mytests")]
+#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  s3cli tmp ls s3://tmp\n  s3cli tmp ls s3://tmp/rust-\n  s3cli tmp get s3://tmp/rust-logs/app.log\n  s3cli tmp getr s3://tmp/rust- .\n  s3cli tmp put tests/test.rs s3://tmp\n  s3cli tmp put tests/test.rs s3://tmp/11.rs\n  s3cli tmp putr tests s3://tmp\n  s3cli tmp putr tests s3://tmp/mytests")]
 struct Params {
     /// 用户名（可选，省略时使用 default_account）
     #[arg(index = 1)]
@@ -61,12 +61,8 @@ enum SubCommand {
 
     /// 下载文件
     Get {
-        #[arg(help = "存储桶 URL (s3://bucket 或 bucket)")]
-        bucket: String,
-        #[arg(help = "对象键")]
-        key: String,
-        #[arg(help = "本地文件路径")]
-        local_file: String,
+        #[arg(help = "S3 URI (s3://bucket/key)")]
+        s3_uri: String,
     },
 
     /// 递归上传目录
@@ -641,13 +637,19 @@ async fn main() -> Result<()> {
             println!("uploaded successfully: {}", access_url);
         }
         SubCommand::Get {
-            bucket,
-            key,
-            local_file,
+            s3_uri,
         } => {
-            let bucket_name = parse_bucket_url(&bucket)?;
+            let (bucket_name, key) = parse_s3_uri(&s3_uri)?;
+            if key.is_empty() {
+                return Err(anyhow!("S3 URI 必须包含对象键，例如: s3://bucket/path/to/file"));
+            }
+            let filename = std::path::Path::new(&key)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or_else(|| anyhow!("无法从 key 中提取文件名: {}", key))?;
+            let local_file = filename.to_string();
             s3_client.download_file(&bucket_name, &key, &local_file).await?;
-            println!("key s3://{}/{} -> {} downloaded successfully.", bucket_name, key, local_file);
+            println!("s3://{}/{} -> {} downloaded successfully.", bucket_name, key, local_file);
         }
         SubCommand::Getr {
             s3_uri,
