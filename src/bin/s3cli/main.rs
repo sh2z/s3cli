@@ -11,7 +11,7 @@ use owo_colors::OwoColorize;
 use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
-#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  s3cli tmp ls s3://tmp\n  s3cli tmp ls s3://tmp/rust-\n  s3cli tmp get s3://tmp/rust-logs/app.log\n  s3cli tmp getr s3://tmp/rust- .\n  s3cli tmp put tests/test.rs s3://tmp\n  s3cli tmp put tests/test.rs s3://tmp/11.rs\n  s3cli tmp putr tests s3://tmp\n  s3cli tmp putr tests s3://tmp/mytests")]
+#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  1. 查看\n     s3cli tmp ls s3://tmp\n     s3cli tmp ls s3://tmp/rust-\n  2. 下载文件\n     s3cli tmp get s3://tmp/rust-logs/251215/app_20251215_193058.log\n  3. 下载文件夹\n     s3cli tmp getr s3://tmp/rust- .\n  4. 上传文件\n     s3cli tmp put tests/test.rs s3://tmp\n     s3cli tmp put tests/test.rs s3://tmp/11.rs\n  5. 上传文件夹\n     s3cli tmp putr tests s3://tmp\n     s3cli tmp putr tests s3://tmp/mytests")]
 struct Params {
     /// 用户名（可选，省略时使用 default_account）
     #[arg(index = 1)]
