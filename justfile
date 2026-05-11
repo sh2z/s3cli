@@ -1,4 +1,5 @@
 export RUST_LOG := "info"
+bin_name := "s3cli"
 
 run:
     cargo run
@@ -43,7 +44,7 @@ tr:
     npm run tauri dev
 
 macos:
-    cargo install --path . --root ~/.dev --bin "s3cli" --force
+    cargo install --path . --root ~/.dev --bin "{{ bin_name }}" --force
 
 # s3cli tmp ls s3://tmp
 # s3cli tmp ls s3://tmp/rust-
@@ -52,20 +53,20 @@ macos:
 # s3cli tmp put tests/test.rs s3://tmp/11.rs
 
 install-macos:
-    cargo install --path . --root ~/.dev --bin "s3cli" --force
+    cargo install --path . --root ~/.dev --bin "{{ bin_name }}" --force
 
 install-linux:
-    cargo install --path . --bin "s3cli"
+    cargo install --path . --bin "{{ bin_name }}"
 
 package-macos:
-    cargo build --bin "s3cli" --release
-    rm -rf bin && mkdir -p bin && cp target/release/s3cli bin/s3cli && chmod +x bin/s3cli
-    du -sh bin/s3cli
+    cargo build --bin "{{ bin_name }}" --release
+    rm -rf bin && mkdir -p bin && cp target/release/{{ bin_name }} bin/{{ bin_name }} && chmod +x bin/{{ bin_name }}
+    du -sh bin/{{ bin_name }}
 
 package-linux:
     if [ ! -f .cargo/config.toml ];then \
         mkdir -p .cargo && echo '[target.x86_64-unknown-linux-musl]\nlinker = "x86_64-linux-musl-gcc"' > .cargo/config.toml; \
     fi
-    cargo build --bin "s3cli" --release --target x86_64-unknown-linux-musl;
-    rm -rf bin && mkdir -p bin && mv target/x86_64-unknown-linux-musl/release/s3cli bin/s3cli  && chmod +x bin/s3cli
-    du -sh bin/s3cli
+    cargo build --bin "{{ bin_name }}" --release --target x86_64-unknown-linux-musl;
+    rm -rf bin && mkdir -p bin && mv target/x86_64-unknown-linux-musl/release/{{ bin_name }} bin/{{ bin_name }} && chmod +x bin/{{ bin_name }}
+    du -sh bin/{{ bin_name }}
