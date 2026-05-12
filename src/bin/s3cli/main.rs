@@ -11,7 +11,7 @@ use owo_colors::OwoColorize;
 use std::time::SystemTime;
 
 #[derive(Parser, Debug)]
-#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  1. 查看\n     s3cli tmp ls s3://tmp\n     s3cli tmp ls s3://tmp/rust-\n  2. 下载文件\n     s3cli tmp get s3://tmp/rust-logs/251215/app_20251215_193058.log\n  3. 下载文件夹\n     s3cli tmp getr s3://tmp/rust- .\n  4. 上传文件\n     s3cli tmp put tests/test.rs s3://tmp\n     s3cli tmp put tests/test.rs s3://tmp/11.rs\n  5. 上传文件夹\n     s3cli tmp putr tests s3://tmp\n     s3cli tmp putr tests s3://tmp/mytests")]
+#[command(author = "sh2z", version = "3.0", about = "s3cli - Ceph RGW 客户端工具", long_about = "支持多用户的 Ceph RGW 命令行工具", after_help = "示例:\n  1. 查看\n     s3cli tmp ls s3://tmp\n     s3cli tmp ls s3://tmp/rust-\n  2. 下载文件\n     s3cli tmp get s3://tmp/rust-logs/251215/app_20251215_193058.log\n     s3cli tmp get s3://tmp/rust-logs/251215/app_20251215_193058.log 111.log\n  3. 下载文件夹\n     s3cli tmp getr s3://tmp/rust-\n     s3cli tmp getr s3://tmp/rust- mylogs\n  4. 上传文件\n     s3cli tmp put tests/test.rs s3://tmp\n     s3cli tmp put tests/test.rs s3://tmp/11.rs\n  5. 上传文件夹\n     s3cli tmp putr tests s3://tmp\n     s3cli tmp putr tests s3://tmp/mytests")]
 struct Params {
     /// 用户名（可选，省略时使用 default_account）
     #[arg(index = 1)]
@@ -63,6 +63,8 @@ enum SubCommand {
     Get {
         #[arg(help = "S3 URI (s3://bucket/key)")]
         s3_uri: String,
+        #[arg(help = "本地文件路径（可选，默认使用原文件名）")]
+        local_file: Option<String>,
     },
 
     /// 递归上传目录
@@ -77,8 +79,8 @@ enum SubCommand {
     Getr {
         #[arg(help = "S3 URI (s3://bucket/prefix)")]
         s3_uri: String,
-        #[arg(help = "本地文件夹路径")]
-        local_dir: String,
+        #[arg(help = "本地文件夹路径（可选，默认当前目录）")]
+        local_dir: Option<String>,
     },
 
     /// 复制对象
@@ -638,26 +640,33 @@ async fn main() -> Result<()> {
         }
         SubCommand::Get {
             s3_uri,
+            local_file,
         } => {
             let (bucket_name, key) = parse_s3_uri(&s3_uri)?;
             if key.is_empty() {
                 return Err(anyhow!("S3 URI 必须包含对象键，例如: s3://bucket/path/to/file"));
             }
-            let filename = std::path::Path::new(&key)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .ok_or_else(|| anyhow!("无法从 key 中提取文件名: {}", key))?;
-            let local_file = filename.to_string();
-            s3_client.download_file(&bucket_name, &key, &local_file).await?;
-            println!("s3://{}/{} -> {} downloaded successfully.", bucket_name, key, local_file);
+            let local_path = match local_file {
+                Some(f) => f,
+                None => {
+                    std::path::Path::new(&key)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .ok_or_else(|| anyhow!("无法从 key 中提取文件名: {}", key))?
+                        .to_string()
+                }
+            };
+            s3_client.download_file(&bucket_name, &key, &local_path).await?;
+            println!("s3://{}/{} -> {} downloaded successfully.", bucket_name, key, local_path);
         }
         SubCommand::Getr {
             s3_uri,
             local_dir,
         } => {
             let (bucket_name, prefix) = parse_s3_uri(&s3_uri)?;
-            s3_client.download_dir_concurrent(&bucket_name, &prefix, &local_dir).await?;
-            println!("Directory s3://{}/{} -> {} downloaded successfully.", bucket_name, prefix, local_dir);
+            let local_path = local_dir.unwrap_or_else(|| ".".to_string());
+            s3_client.download_dir_concurrent(&bucket_name, &prefix, &local_path).await?;
+            println!("Directory s3://{}/{} -> {} downloaded successfully.", bucket_name, prefix, local_path);
         }
         SubCommand::Ls {
             s3_uri,
